@@ -1,0 +1,21 @@
+# Target / build artifacts
+target/
+*.jar
+*.war
+*.ear
+dependency-reduced-pom.xml
+
+# IDE & Editor files
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
