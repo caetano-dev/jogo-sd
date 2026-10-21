@@ -1,11 +1,11 @@
 package uerj.sd;
 
 import org.junit.jupiter.api.Test;
-import uerj.sd.display.CanalDisplay;
+import uerj.sd.display.Display;
 import uerj.sd.jogo.Tabuleiro;
-import uerj.sd.modelo.MensagemDisplay;
 import uerj.sd.modelo.MensagemJogada;
 
+import java.net.MulticastSocket;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -15,59 +15,42 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TransmissaoDisplayTest {
 
     @Test
-    public void testTransmissaoMultiplosDisplays() throws Exception {
-        System.setProperty("java.net.preferIPv4Stack", "true");
+    public void testTransmissaoMulticastDisplay() throws Exception {
+        String ipMulticast = "225.1.1.99";
+        int portaMulticast = 8899;
 
-        CanalDisplay emissor = new CanalDisplay();
-        CanalDisplay display1 = new CanalDisplay();
-        CanalDisplay display2 = new CanalDisplay();
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<MensagemJogada> msgRecebida = new AtomicReference<>();
 
-        CountDownLatch latch = new CountDownLatch(2);
-        AtomicReference<MensagemDisplay> msgRecebida1 = new AtomicReference<>();
-        AtomicReference<MensagemDisplay> msgRecebida2 = new AtomicReference<>();
-
-        display1.conectar(msg -> {
-            msgRecebida1.set(msg);
+        MulticastSocket socket = Display.ouvirMulticast(ipMulticast, portaMulticast, msg -> {
+            msgRecebida.set(msg);
             latch.countDown();
-        });
+        }, false);
 
-        display2.conectar(msg -> {
-            msgRecebida2.set(msg);
-            latch.countDown();
-        });
+        assertNotNull(socket, "Socket multicast deve ser inicializado com sucesso");
 
-        emissor.conectar(null);
-
-        // Aguarda formação da visão do cluster
-        Thread.sleep(500);
+        // Pequeno intervalo para o socket se registrar no grupo
+        Thread.sleep(200);
 
         Tabuleiro tab = new Tabuleiro();
         tab.soltarPeca(3, Tabuleiro.JOGADOR_1);
 
-        MensagemDisplay evento = new MensagemDisplay(
-                MensagemDisplay.EVENTO_JOGADA,
-                Tabuleiro.JOGADOR_1,
+        MensagemJogada jogada = new MensagemJogada(
                 0,
                 3,
                 tab.getGrade(),
                 MensagemJogada.RESULTADO_JOGANDO
         );
 
-        emissor.publicar(evento);
+        Display.transmitirJogada(jogada, ipMulticast, portaMulticast);
 
-        boolean sucesso = latch.await(6, TimeUnit.SECONDS);
+        boolean sucesso = latch.await(3, TimeUnit.SECONDS);
+        socket.close();
 
-        emissor.fechar();
-        display1.fechar();
-        display2.fechar();
-
-        assertTrue(sucesso, "Ambos os displays deveriam ter recebido o evento");
-        assertNotNull(msgRecebida1.get());
-        assertNotNull(msgRecebida2.get());
-
-        assertEquals(3, msgRecebida1.get().getColuna());
-        assertEquals(3, msgRecebida2.get().getColuna());
-        assertEquals(Tabuleiro.JOGADOR_1, msgRecebida1.get().getJogadorId());
-        assertEquals(Tabuleiro.JOGADOR_1, msgRecebida2.get().getJogadorId());
+        assertTrue(sucesso, "O Display deve ter recebido a jogada via Multicast nativo");
+        assertNotNull(msgRecebida.get());
+        assertEquals(3, msgRecebida.get().getJogada());
+        assertEquals(0, msgRecebida.get().getNumero());
+        assertEquals(MensagemJogada.RESULTADO_JOGANDO, msgRecebida.get().getResultado());
     }
 }

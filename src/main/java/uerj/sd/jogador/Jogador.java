@@ -1,8 +1,7 @@
 package uerj.sd.jogador;
 
-import uerj.sd.display.CanalDisplay;
+import uerj.sd.display.Display;
 import uerj.sd.jogo.Tabuleiro;
-import uerj.sd.modelo.MensagemDisplay;
 import uerj.sd.modelo.MensagemJogada;
 import uerj.sd.modelo.RequisicaoMatch;
 import uerj.sd.modelo.RespostaMatch;
@@ -23,7 +22,7 @@ import java.util.Arrays;
 import java.util.Scanner;
 
 /**
- * Módulo Jogador: Pareamento via RMI, troca de jogadas via Socket TCP e publicação no Display via JGroups.
+ * Módulo Jogador: Pareamento via RMI, troca de jogadas via Socket TCP e transmissão multicast para os Displays.
  */
 public class Jogador {
 
@@ -31,12 +30,20 @@ public class Jogador {
     private final int rmiPorta;
     private final String meuIp;
     private final int minhaPorta;
+    private final String multicastIp;
+    private final int multicastPorta;
 
     public Jogador(String rmiIp, int rmiPorta, String meuIp, int minhaPorta) {
+        this(rmiIp, rmiPorta, meuIp, minhaPorta, Display.IP_MULTICAST_PADRAO, Display.PORTA_MULTICAST_PADRAO);
+    }
+
+    public Jogador(String rmiIp, int rmiPorta, String meuIp, int minhaPorta, String multicastIp, int multicastPorta) {
         this.rmiIp = rmiIp;
         this.rmiPorta = rmiPorta;
         this.meuIp = meuIp;
         this.minhaPorta = minhaPorta;
+        this.multicastIp = multicastIp;
+        this.multicastPorta = multicastPorta;
     }
 
     public void iniciar() {
@@ -44,7 +51,6 @@ public class Jogador {
     }
 
     public void iniciarComEntrada(Scanner scanner) {
-        CanalDisplay canalDisplay = null;
         Socket socketP2P = null;
         ServerSocket serverSocket = null;
 
@@ -53,6 +59,7 @@ public class Jogador {
             System.out.println("           Conectando ao Connect Four             ");
             System.out.printf(" Servidor RMI: %s:%d%n", rmiIp, rmiPorta);
             System.out.printf(" Minha conexão P2P: %s:%d%n", meuIp, minhaPorta);
+            System.out.printf(" Multicast Display: %s:%d%n", multicastIp, multicastPorta);
             System.out.println("==================================================");
 
             // 1. Pareamento via RMI
@@ -65,7 +72,7 @@ public class Jogador {
 
             RespostaMatch resposta = RespostaMatch.deJson(jsonResposta);
             if (resposta.temErro()) {
-                System.err.println("[Jogador] Erro do servidor de match: " + resposta.getErro());
+                System.err.println("[Jogador] Erro retornado pelo servidor: " + resposta.getErro());
                 return;
             }
 
@@ -83,18 +90,8 @@ public class Jogador {
             System.out.printf("  -> Você é o Jogador %d (%c)%n", meuId, meuSimbolo);
             System.out.printf("  -> Você %s a partida.%n", souIniciante ? "INICIA" : "AGUARDA");
 
-            // 2. Conexão ao canal de exibição (JGroups)
-            try {
-                canalDisplay = new CanalDisplay();
-                canalDisplay.conectar(null);
-                System.out.println("[Jogador] Conectado ao cluster de Display (JGroups).");
-            } catch (Exception e) {
-                System.err.println("[Jogador] Aviso: Não foi possível conectar ao cluster Display: " + e.getMessage());
-            }
-
-            // 3. Estabelecimento de conexão Socket TCP P2P
+            // 2. Estabelecimento da Conexão Socket TCP P2P
             if (souIniciante) {
-                // Jogador que inicia conecta ao oponente (com tentativas de retry)
                 System.out.println("[Jogador] Conectando ao socket do oponente...");
                 int tentativas = 0;
                 while (socketP2P == null && tentativas < 20) {
@@ -112,7 +109,6 @@ public class Jogador {
                     return;
                 }
             } else {
-                // Jogador que aguarda abre ServerSocket e aceita a conexão
                 System.out.printf("[Jogador] Aguardando conexão do oponente na porta %d...%n", minhaPorta);
                 serverSocket = new ServerSocket();
                 serverSocket.setReuseAddress(true);
@@ -127,7 +123,7 @@ public class Jogador {
             PrintWriter escritorSocket = new PrintWriter(
                     new OutputStreamWriter(socketP2P.getOutputStream(), StandardCharsets.UTF_8), true);
 
-            // 4. Loop de Turnos do Jogo
+            // 3. Loop de Turnos do Jogo
             Tabuleiro tabuleiro = new Tabuleiro();
             int numeroSequencia = 0;
             boolean meuTurno = souIniciante;
@@ -154,11 +150,8 @@ public class Jogador {
                     MensagemJogada msg = new MensagemJogada(numeroSequencia, coluna, tabuleiro.getGrade(), resultado);
                     escritorSocket.println(msg.paraJson());
 
-                    if (canalDisplay != null) {
-                        canalDisplay.publicar(new MensagemDisplay(
-                                MensagemDisplay.EVENTO_JOGADA, meuId, numeroSequencia, coluna, tabuleiro.getGrade(), resultado
-                        ));
-                    }
+                    // Transmissão Multicast para os Displays
+                    Display.transmitirJogada(msg, multicastIp, multicastPorta);
 
                     if (MensagemJogada.RESULTADO_VITORIA.equals(resultado)) {
                         System.out.println(tabuleiro.renderizarAscii());
@@ -196,22 +189,20 @@ public class Jogador {
                         break;
                     }
 
-                    // Detecção se o oponente devolveu nossa jogada por considerá-la inválida:
+                    // Detecção de repetição (oponente recusou nossa jogada por inconsistência)
                     if (msgRecebida.getNumero() == numeroSequencia - 1 && msgRecebida.getJogada() == minhaUltimaColuna) {
                         System.out.println("⚠️ O oponente recusou sua jogada por inconsistência! Por favor repita sua jogada.");
-                        // Desfaz a última peça no tabuleiro local
                         tabuleiro = new Tabuleiro(desfazerUltimaJogada(tabuleiro.getGrade(), minhaUltimaColuna, meuId));
                         numeroSequencia--;
                         meuTurno = true;
                         continue;
                     }
 
-                    // Validação Anti-Cheat da jogada do oponente:
+                    // Validação Anti-Cheat da jogada do oponente
                     boolean valida = validarJogadaOponente(msgRecebida, numeroSequencia, tabuleiro, oponenteId);
                     if (!valida) {
-                        System.out.printf("⚠️ Trapaça/inconsistência detectada na jogada do oponente (Nº %d, Coluna %d)! Devolvendo mensagem.%n",
+                        System.out.printf("⚠️ Inconsistência na jogada do oponente (Nº %d, Coluna %d)! Devolvendo mensagem.%n",
                                 msgRecebida.getNumero(), msgRecebida.getJogada());
-                        // Devolve a mesma mensagem recebida sem avançar turno
                         escritorSocket.println(linha);
                         continue;
                     }
@@ -233,12 +224,10 @@ public class Jogador {
                         );
                         escritorSocket.println(derrota.paraJson());
 
-                        if (canalDisplay != null) {
-                            canalDisplay.publicar(new MensagemDisplay(
-                                    MensagemDisplay.EVENTO_JOGADA, oponenteId, msgRecebida.getNumero(),
-                                    msgRecebida.getJogada(), tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
-                            ));
-                        }
+                        Display.transmitirJogada(new MensagemJogada(
+                                msgRecebida.getNumero(), msgRecebida.getJogada(),
+                                tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
+                        ), multicastIp, multicastPorta);
                         break;
                     } else if (MensagemJogada.RESULTADO_EMPATE.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.estaCheio()) {
@@ -256,9 +245,6 @@ public class Jogador {
             System.err.println("[Jogador] Erro na execução: " + e.getMessage());
             e.printStackTrace();
         } finally {
-            if (canalDisplay != null) {
-                canalDisplay.fechar();
-            }
             if (socketP2P != null) {
                 try {
                     socketP2P.close();
@@ -297,35 +283,24 @@ public class Jogador {
     }
 
     private boolean validarJogadaOponente(MensagemJogada msg, int numeroEsperado, Tabuleiro tabuleiroLocal, int oponenteId) {
-        if (msg == null) {
-            return false;
-        }
-        if (msg.getNumero() != numeroEsperado) {
-            return false;
-        }
+        if (msg == null) return false;
+        if (msg.getNumero() != numeroEsperado) return false;
         int col = msg.getJogada();
-        if (col < 0 || col >= Tabuleiro.COLUNAS) {
-            return false;
-        }
-        if (!tabuleiroLocal.colunaValida(col)) {
-            return false;
-        }
+        if (col < 0 || col >= Tabuleiro.COLUNAS) return false;
+        if (!tabuleiroLocal.colunaValida(col)) return false;
 
-        // Validação de integridade do estado do tabuleiro enviado:
         if (msg.getTabuleiro() != null && msg.getTabuleiro().length == Tabuleiro.TOTAL_CASAS) {
             Tabuleiro simulado = tabuleiroLocal.clonar();
             simulado.soltarPeca(col, oponenteId);
             if (!Arrays.equals(simulado.getGrade(), msg.getTabuleiro())) {
-                return false; // Tabuleiro adulterado
+                return false;
             }
         }
-
         return true;
     }
 
     private int[] desfazerUltimaJogada(int[] gradeAtual, int coluna, int jogadorId) {
         int[] copia = Arrays.copyOf(gradeAtual, gradeAtual.length);
-        // A peça no topo da coluna é a primeira de cima para baixo (linha 0 a 5)
         for (int r = 0; r < Tabuleiro.LINHAS; r++) {
             int idx = r * Tabuleiro.COLUNAS + coluna;
             if (copia[idx] == jogadorId) {

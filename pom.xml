@@ -13,31 +13,16 @@
     <properties>
         <maven.compiler.release>17</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jgroups.version>5.3.8.Final</jgroups.version>
         <gson.version>2.11.0</gson.version>
         <junit.version>5.10.2</junit.version>
     </properties>
 
     <dependencies>
-        <!-- JGroups para canal Multicast / Grupo de Display -->
-        <dependency>
-            <groupId>org.jgroups</groupId>
-            <artifactId>jgroups</artifactId>
-            <version>${jgroups.version}</version>
-        </dependency>
-
         <!-- Gson para serialização de JSON -->
         <dependency>
             <groupId>com.google.code.gson</groupId>
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
-        </dependency>
-
-        <!-- SLF4J logger simples para suprimir avisos excessivos do JGroups -->
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
-            <version>2.0.13</version>
         </dependency>
 
         <!-- Testes Unitários -->
@@ -82,16 +67,6 @@
                                     <mainClass>uerj.sd.Principal</mainClass>
                                 </transformer>
                             </transformers>
-                            <filters>
-                                <filter>
-                                    <artifact>*:*</artifact>
-                                    <excludes>
-                                        <exclude>META-INF/*.SF</exclude>
-                                        <exclude>META-INF/*.DSA</exclude>
-                                        <exclude>META-INF/*.RSA</exclude>
-                                    </excludes>
-                                </filter>
-                            </filters>
                         </configuration>
                     </execution>
                 </executions>
