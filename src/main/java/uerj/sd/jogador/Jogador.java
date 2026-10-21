@@ -12,13 +12,11 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
-import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
-import java.util.Arrays;
 import java.util.Scanner;
 
 /**
@@ -93,26 +91,20 @@ public class Jogador {
             // 2. Estabelecimento da Conexão Socket TCP P2P
             if (souIniciante) {
                 System.out.println("[Jogador] Conectando ao socket do oponente...");
-                int tentativas = 0;
-                while (socketP2P == null && tentativas < 20) {
+                for (int t = 0; t < 20 && socketP2P == null; t++) {
                     try {
-                        Socket s = new Socket();
-                        s.connect(new InetSocketAddress(oponenteIp, oponentePorta), 2000);
-                        socketP2P = s;
+                        socketP2P = new Socket(oponenteIp, oponentePorta);
                     } catch (Exception e) {
-                        tentativas++;
-                        Thread.sleep(500);
+                        Thread.sleep(300);
                     }
                 }
                 if (socketP2P == null) {
-                    System.err.println("[Jogador] Falha ao conectar ao oponente após 20 tentativas.");
+                    System.err.println("[Jogador] Falha ao conectar ao oponente após tentativas.");
                     return;
                 }
             } else {
                 System.out.printf("[Jogador] Aguardando conexão do oponente na porta %d...%n", minhaPorta);
-                serverSocket = new ServerSocket();
-                serverSocket.setReuseAddress(true);
-                serverSocket.bind(new InetSocketAddress(minhaPorta));
+                serverSocket = new ServerSocket(minhaPorta);
                 socketP2P = serverSocket.accept();
             }
 
@@ -127,7 +119,6 @@ public class Jogador {
             Tabuleiro tabuleiro = new Tabuleiro();
             int numeroSequencia = 0;
             boolean meuTurno = souIniciante;
-            int minhaUltimaColuna = -1;
 
             while (true) {
                 if (meuTurno) {
@@ -135,17 +126,13 @@ public class Jogador {
                     System.out.printf(">>> SUA VEZ (Jogador %d - [%c]) - Rodada nº %d <<<%n", meuId, meuSimbolo, numeroSequencia);
 
                     int coluna = lerColunaValida(scanner, tabuleiro);
-                    tabuleiro.soltarPeca(coluna, meuId);
-                    minhaUltimaColuna = coluna;
+                    if (coluna == -1) break;
 
-                    String resultado;
-                    if (tabuleiro.verificarVitoria(meuId)) {
-                        resultado = MensagemJogada.RESULTADO_VITORIA;
-                    } else if (tabuleiro.estaCheio()) {
-                        resultado = MensagemJogada.RESULTADO_EMPATE;
-                    } else {
-                        resultado = MensagemJogada.RESULTADO_JOGANDO;
-                    }
+                    tabuleiro.soltarPeca(coluna, meuId);
+
+                    String resultado = tabuleiro.verificarVitoria(meuId) ? MensagemJogada.RESULTADO_VITORIA
+                            : tabuleiro.estaCheio() ? MensagemJogada.RESULTADO_EMPATE
+                            : MensagemJogada.RESULTADO_JOGANDO;
 
                     MensagemJogada msg = new MensagemJogada(numeroSequencia, coluna, tabuleiro.getGrade(), resultado);
                     escritorSocket.println(msg.paraJson());
@@ -168,7 +155,6 @@ public class Jogador {
                     System.out.println("Jogada enviada! Aguardando oponente jogar...");
 
                 } else {
-                    // Turno do oponente: aguarda recebimento da mensagem
                     String linha = leitorSocket.readLine();
                     if (linha == null) {
                         System.out.println("\n[Jogador] Conexão encerrada pelo oponente.");
@@ -179,40 +165,26 @@ public class Jogador {
                     try {
                         msgRecebida = MensagemJogada.deJson(linha);
                     } catch (Exception e) {
-                        System.err.println("[Jogador] Mensagem corrompida recebida: " + linha);
+                        System.err.println("[Jogador] Mensagem corrompida: " + linha);
                         continue;
                     }
 
-                    // Se for declaração de derrota do oponente:
                     if (MensagemJogada.RESULTADO_DERROTA.equalsIgnoreCase(msgRecebida.getResultado())) {
                         System.out.println("\n[Jogador] O oponente aceitou a derrota. Fim de jogo!");
                         break;
                     }
 
-                    // Detecção de repetição (oponente recusou nossa jogada por inconsistência)
-                    if (msgRecebida.getNumero() == numeroSequencia - 1 && msgRecebida.getJogada() == minhaUltimaColuna) {
-                        System.out.println("⚠️ O oponente recusou sua jogada por inconsistência! Por favor repita sua jogada.");
-                        tabuleiro = new Tabuleiro(desfazerUltimaJogada(tabuleiro.getGrade(), minhaUltimaColuna, meuId));
-                        numeroSequencia--;
-                        meuTurno = true;
+                    // Validação da jogada recebida
+                    int col = msgRecebida.getJogada();
+                    if (col < 0 || col >= Tabuleiro.COLUNAS || !tabuleiro.colunaValida(col)) {
+                        System.out.printf("⚠️ Jogada inválida do oponente (Coluna %d). Ignorando.%n", col);
                         continue;
                     }
 
-                    // Validação Anti-Cheat da jogada do oponente
-                    boolean valida = validarJogadaOponente(msgRecebida, numeroSequencia, tabuleiro, oponenteId);
-                    if (!valida) {
-                        System.out.printf("⚠️ Inconsistência na jogada do oponente (Nº %d, Coluna %d)! Devolvendo mensagem.%n",
-                                msgRecebida.getNumero(), msgRecebida.getJogada());
-                        escritorSocket.println(linha);
-                        continue;
-                    }
-
-                    // Aplica a jogada do oponente no tabuleiro local
-                    tabuleiro.soltarPeca(msgRecebida.getJogada(), oponenteId);
+                    tabuleiro.soltarPeca(col, oponenteId);
                     System.out.printf("%n>>> Oponente (Jogador %d - [%c]) jogou na coluna %d%n",
-                            oponenteId, oponenteSimbolo, msgRecebida.getJogada());
+                            oponenteId, oponenteSimbolo, col);
 
-                    // Verifica se o oponente venceu ou se houve empate
                     if (MensagemJogada.RESULTADO_VITORIA.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.verificarVitoria(oponenteId)) {
                         System.out.println(tabuleiro.renderizarAscii());
@@ -225,8 +197,7 @@ public class Jogador {
                         escritorSocket.println(derrota.paraJson());
 
                         Display.transmitirJogada(new MensagemJogada(
-                                msgRecebida.getNumero(), msgRecebida.getJogada(),
-                                tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
+                                msgRecebida.getNumero(), col, tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
                         ), multicastIp, multicastPorta);
                         break;
                     } else if (MensagemJogada.RESULTADO_EMPATE.equalsIgnoreCase(msgRecebida.getResultado()) ||
@@ -246,16 +217,10 @@ public class Jogador {
             e.printStackTrace();
         } finally {
             if (socketP2P != null) {
-                try {
-                    socketP2P.close();
-                } catch (Exception ignored) {
-                }
+                try { socketP2P.close(); } catch (Exception ignored) {}
             }
             if (serverSocket != null) {
-                try {
-                    serverSocket.close();
-                } catch (Exception ignored) {
-                }
+                try { serverSocket.close(); } catch (Exception ignored) {}
             }
             System.out.println("[Jogador] Sessão encerrada e recursos liberados.");
         }
@@ -264,50 +229,17 @@ public class Jogador {
     private int lerColunaValida(Scanner scanner, Tabuleiro tabuleiro) {
         while (true) {
             System.out.print("Escolha a coluna (0 a 6): ");
+            if (!scanner.hasNextLine()) return -1;
             String entrada = scanner.nextLine().trim();
             try {
                 int col = Integer.parseInt(entrada);
-                if (col < 0 || col >= Tabuleiro.COLUNAS) {
-                    System.out.println("❌ Coluna inválida! Digite um número entre 0 e 6.");
-                    continue;
+                if (col >= 0 && col < Tabuleiro.COLUNAS && tabuleiro.colunaValida(col)) {
+                    return col;
                 }
-                if (!tabuleiro.colunaValida(col)) {
-                    System.out.println("❌ Coluna cheia! Escolha outra coluna.");
-                    continue;
-                }
-                return col;
+                System.out.println("❌ Coluna inválida ou cheia (0 a 6). Tente novamente.");
             } catch (NumberFormatException e) {
-                System.out.println("❌ Entrada inválida! Digite um número inteiro entre 0 e 6.");
+                System.out.println("❌ Digite um número inteiro entre 0 e 6.");
             }
         }
-    }
-
-    private boolean validarJogadaOponente(MensagemJogada msg, int numeroEsperado, Tabuleiro tabuleiroLocal, int oponenteId) {
-        if (msg == null) return false;
-        if (msg.getNumero() != numeroEsperado) return false;
-        int col = msg.getJogada();
-        if (col < 0 || col >= Tabuleiro.COLUNAS) return false;
-        if (!tabuleiroLocal.colunaValida(col)) return false;
-
-        if (msg.getTabuleiro() != null && msg.getTabuleiro().length == Tabuleiro.TOTAL_CASAS) {
-            Tabuleiro simulado = tabuleiroLocal.clonar();
-            simulado.soltarPeca(col, oponenteId);
-            if (!Arrays.equals(simulado.getGrade(), msg.getTabuleiro())) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    private int[] desfazerUltimaJogada(int[] gradeAtual, int coluna, int jogadorId) {
-        int[] copia = Arrays.copyOf(gradeAtual, gradeAtual.length);
-        for (int r = 0; r < Tabuleiro.LINHAS; r++) {
-            int idx = r * Tabuleiro.COLUNAS + coluna;
-            if (copia[idx] == jogadorId) {
-                copia[idx] = Tabuleiro.VAZIO;
-                break;
-            }
-        }
-        return copia;
     }
 }

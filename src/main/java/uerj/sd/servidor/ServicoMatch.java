@@ -8,27 +8,15 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
- * Implementação do serviço de pareamento (matchmaking) via Java RMI.
+ * Serviço de pareamento (matchmaking) via Java RMI com bloqueio e timeout.
  */
 public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInterface {
 
-    private static class JogadorEsperando {
-        final RequisicaoMatch requisicao;
-        final CompletableFuture<RespostaMatch> respostaFutura;
-
-        JogadorEsperando(RequisicaoMatch requisicao, CompletableFuture<RespostaMatch> respostaFutura) {
-            this.requisicao = requisicao;
-            this.respostaFutura = respostaFutura;
-        }
-    }
-
-    private final Map<String, JogadorEsperando> filaPorProtocolo = new HashMap<>();
     private final int timeoutSegundos;
+    private final Map<String, RequisicaoMatch> fila = new HashMap<>();
+    private final Map<String, RespostaMatch> respostas = new HashMap<>();
 
     public ServicoMatch() throws RemoteException {
         this(60);
@@ -40,72 +28,61 @@ public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInt
     }
 
     @Override
-    public String getOponent(String jsonIn) throws RemoteException {
+    public synchronized String getOponent(String jsonIn) throws RemoteException {
         if (jsonIn == null || jsonIn.isBlank()) {
-            return RespostaMatch.erro("Requisição vazia ou inválida").paraJson();
+            return RespostaMatch.erro("Requisição vazia").paraJson();
         }
-
         RequisicaoMatch req;
         try {
             req = RequisicaoMatch.deJson(jsonIn);
         } catch (Exception e) {
-            return RespostaMatch.erro("Erro ao processar JSON: " + e.getMessage()).paraJson();
+            return RespostaMatch.erro("JSON inválido: " + e.getMessage()).paraJson();
         }
 
-        if (req == null || req.getIp() == null || req.getProtocolo() == null) {
-            return RespostaMatch.erro("Campos obrigatórios ausentes: ip, porta ou protocolo").paraJson();
+        if (req == null || req.ip() == null || req.protocolo() == null) {
+            return RespostaMatch.erro("Campos obrigatórios ausentes").paraJson();
         }
 
-        String protocolo = req.getProtocolo().trim().toLowerCase();
-        JogadorEsperando jogadorEsperando;
+        String protocolo = req.protocolo().trim().toLowerCase();
+        String minhaChave = req.ip() + ":" + req.porta();
 
-        synchronized (filaPorProtocolo) {
-            jogadorEsperando = filaPorProtocolo.remove(protocolo);
+        if (fila.containsKey(protocolo)) {
+            // Par encontrado!
+            RequisicaoMatch oponente = fila.remove(protocolo);
+            String chaveOponente = oponente.ip() + ":" + oponente.porta();
 
-            if (jogadorEsperando != null) {
-                // Formou par!
-                // Jogador A (que estava esperando na fila) recebe os dados de B com inicia: true
-                RespostaMatch respA = new RespostaMatch(req.getIp(), req.getPorta(), true);
-                jogadorEsperando.respostaFutura.complete(respA);
+            // O primeiro que esperou na fila inicia a partida
+            respostas.put(chaveOponente, new RespostaMatch(req.ip(), req.porta(), true));
+            notifyAll();
 
-                // Jogador B (o atual) recebe os dados de A com inicia: false
-                RespostaMatch respB = new RespostaMatch(
-                        jogadorEsperando.requisicao.getIp(),
-                        jogadorEsperando.requisicao.getPorta(),
-                        false
-                );
-                System.out.printf("[ServidorMatch] Par formado (%s): %s:%d (inicia=true) vs %s:%d (inicia=false)%n",
-                        protocolo,
-                        jogadorEsperando.requisicao.getIp(), jogadorEsperando.requisicao.getPorta(),
-                        req.getIp(), req.getPorta());
+            System.out.printf("[ServidorMatch] Par formado (%s): %s (inicia=true) vs %s (inicia=false)%n",
+                    protocolo, chaveOponente, minhaChave);
 
-                return respB.paraJson();
-            } else {
-                // Não há ninguém esperando por esse protocolo: entra na fila
-                CompletableFuture<RespostaMatch> futuro = new CompletableFuture<>();
-                JogadorEsperando novoEsperando = new JogadorEsperando(req, futuro);
-                filaPorProtocolo.put(protocolo, novoEsperando);
-                jogadorEsperando = novoEsperando;
-                System.out.printf("[ServidorMatch] Jogador aguardando oponente (%s): %s:%d%n",
-                        protocolo, req.getIp(), req.getPorta());
+            return new RespostaMatch(oponente.ip(), oponente.porta(), false).paraJson();
+        }
+
+        // Não há oponente no momento: entra na fila e aguarda
+        fila.put(protocolo, req);
+        System.out.printf("[ServidorMatch] Jogador aguardando oponente (%s): %s%n", protocolo, minhaChave);
+
+        long limite = System.currentTimeMillis() + (timeoutSegundos * 1000L);
+        while (!respostas.containsKey(minhaChave)) {
+            long restante = limite - System.currentTimeMillis();
+            if (restante <= 0) break;
+            try {
+                wait(restante);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                break;
             }
         }
 
-        // Aguarda formação de par com timeout
-        try {
-            RespostaMatch resposta = jogadorEsperando.respostaFutura.get(timeoutSegundos, TimeUnit.SECONDS);
-            return resposta.paraJson();
-        } catch (TimeoutException e) {
-            synchronized (filaPorProtocolo) {
-                if (filaPorProtocolo.get(protocolo) == jogadorEsperando) {
-                    filaPorProtocolo.remove(protocolo);
-                }
-            }
-            System.out.printf("[ServidorMatch] Timeout esgotado para %s:%d (%s)%n",
-                    req.getIp(), req.getPorta(), protocolo);
-            return RespostaMatch.erro("Tempo limite de pareamento esgotado (" + timeoutSegundos + "s)").paraJson();
-        } catch (Exception e) {
-            return RespostaMatch.erro("Erro interno ao aguardar pareamento: " + e.getMessage()).paraJson();
+        if (respostas.containsKey(minhaChave)) {
+            return respostas.remove(minhaChave).paraJson();
         }
+
+        fila.remove(protocolo);
+        System.out.printf("[ServidorMatch] Timeout esgotado para %s (%s)%n", minhaChave, protocolo);
+        return RespostaMatch.erro("Tempo limite de pareamento esgotado (" + timeoutSegundos + "s)").paraJson();
     }
 }
