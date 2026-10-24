@@ -2,9 +2,6 @@ package uerj.sd.modelo;
 
 import com.google.gson.Gson;
 
-/**
- * Representa a mensagem de jogada transmitida entre jogadores via Socket TCP e Multicast.
- */
 public record MensagemJogada(int Numero, int Jogada, int[] Tabuleiro, String Resultado) {
     private static final Gson gson = new Gson();
 

@@ -8,10 +8,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.Enumeration;
 import java.util.function.Consumer;
 
-/**
- * Módulo Display: Transmissão e recepção multicast nativa conforme o PDF.
- * Grupo multicast padrão: 225.1.1.NN | Porta multicast: 88NN.
- */
 public class Display {
 
     public static final String IP_MULTICAST_PADRAO = "225.1.1.1";
@@ -35,10 +31,9 @@ public class Display {
     }
 
     public static void iniciar(String ipMulticast, int portaMulticast) {
-        System.out.println("==================================================");
         System.out.println("   Módulo Display - Transmissão Multicast Nativa  ");
         System.out.printf("   Grupo: %s | Porta: %d%n", ipMulticast, portaMulticast);
-        System.out.println("==================================================");
+        System.out.println("----------------------------------");
         ouvirMulticast(ipMulticast, portaMulticast, Display::exibirMensagem, true);
     }
 
@@ -98,10 +93,10 @@ public class Display {
         }
 
         switch (msg.getResultado()) {
-            case MensagemJogada.RESULTADO_VITORIA -> System.out.println("🏆 RESULTADO: VITÓRIA NA PARTIDA!");
-            case MensagemJogada.RESULTADO_DERROTA -> System.out.println("🏁 RESULTADO: DERROTA DECLARADA!");
-            case MensagemJogada.RESULTADO_EMPATE -> System.out.println("🤝 RESULTADO: EMPATE!");
-            default -> System.out.println("⏱ Estado: Partida em andamento...");
+            case MensagemJogada.RESULTADO_VITORIA -> System.out.println("RESULTADO: VITÓRIA NA PARTIDA!");
+            case MensagemJogada.RESULTADO_DERROTA -> System.out.println("RESULTADO: DERROTA DECLARADA!");
+            case MensagemJogada.RESULTADO_EMPATE -> System.out.println("RESULTADO: EMPATE!");
+            default -> System.out.println("Estado: Partida em andamento...");
         }
     }
 

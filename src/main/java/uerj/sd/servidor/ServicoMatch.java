@@ -9,9 +9,6 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Serviço de pareamento (matchmaking) via Java RMI com bloqueio e timeout.
- */
 public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInterface {
 
     private final int timeoutSegundos;
@@ -47,7 +44,7 @@ public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInt
         String minhaChave = req.ip() + ":" + req.porta();
 
         if (fila.containsKey(protocolo)) {
-            // Par encontrado!
+            // Par encontrado
             RequisicaoMatch oponente = fila.remove(protocolo);
             String chaveOponente = oponente.ip() + ":" + oponente.porta();
 
@@ -61,7 +58,6 @@ public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInt
             return new RespostaMatch(oponente.ip(), oponente.porta(), false).paraJson();
         }
 
-        // Não há oponente no momento: entra na fila e aguarda
         fila.put(protocolo, req);
         System.out.printf("[ServidorMatch] Jogador aguardando oponente (%s): %s%n", protocolo, minhaChave);
 

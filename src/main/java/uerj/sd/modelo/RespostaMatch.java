@@ -2,9 +2,6 @@ package uerj.sd.modelo;
 
 import com.google.gson.Gson;
 
-/**
- * Payload JSON retornado pelo servidor de match em getOponent.
- */
 public record RespostaMatch(String ip, Integer porta, Boolean inicia, String erro) {
     private static final Gson gson = new Gson();
 

@@ -19,9 +19,6 @@ import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.Scanner;
 
-/**
- * Módulo Jogador: Pareamento via RMI, troca de jogadas via Socket TCP e transmissão multicast para os Displays.
- */
 public class Jogador {
 
     private final String rmiIp;
@@ -53,15 +50,13 @@ public class Jogador {
         ServerSocket serverSocket = null;
 
         try {
-            System.out.println("==================================================");
-            System.out.println("           Conectando ao Jogo da Velha            ");
+            System.out.println("Conectando ao Jogo da Velha");
             System.out.printf(" Servidor RMI: %s:%d%n", rmiIp, rmiPorta);
             System.out.printf(" Minha conexão P2P: %s:%d%n", meuIp, minhaPorta);
             System.out.printf(" Multicast Display: %s:%d%n", multicastIp, multicastPorta);
-            System.out.println("==================================================");
+            System.out.println("-----------------------------");
 
-            // 1. Pareamento via RMI
-            System.out.println("[Jogador] Buscando oponente no Servidor de Match...");
+            System.out.println("[Jogador] Buscando oponente no servidor de match...");
             Registry registro = LocateRegistry.getRegistry(rmiIp, rmiPorta);
             MatchServiceInterface servicoMatch = (MatchServiceInterface) registro.lookup(ServidorMatch.NOME_SERVICO);
 
@@ -70,7 +65,7 @@ public class Jogador {
 
             RespostaMatch resposta = RespostaMatch.deJson(jsonResposta);
             if (resposta.temErro()) {
-                System.err.println("[Jogador] Erro retornado pelo servidor: " + resposta.getErro());
+                System.err.println("[Jogador] Erro do servidor: " + resposta.getErro());
                 return;
             }
 
@@ -84,11 +79,10 @@ public class Jogador {
             char oponenteSimbolo = oponenteId == Tabuleiro.JOGADOR_1 ? 'X' : 'O';
 
             System.out.println("[Jogador] Oponente encontrado!");
-            System.out.printf("  -> IP do Oponente: %s:%d%n", oponenteIp, oponentePorta);
-            System.out.printf("  -> Você é o Jogador %d (%c)%n", meuId, meuSimbolo);
-            System.out.printf("  -> Você %s a partida.%n", souIniciante ? "INICIA" : "AGUARDA");
+            System.out.printf("IP do Oponente: %s:%d%n", oponenteIp, oponentePorta);
+            System.out.printf("Você é o Jogador %d (%c)%n", meuId, meuSimbolo);
+            System.out.printf("Você %s a partida.%n", souIniciante ? "inicia" : "aguarda");
 
-            // 2. Estabelecimento da Conexão Socket TCP P2P
             if (souIniciante) {
                 System.out.println("[Jogador] Conectando ao socket do oponente...");
                 for (int t = 0; t < 20 && socketP2P == null; t++) {
@@ -124,7 +118,7 @@ public class Jogador {
             while (true) {
                 if (meuTurno) {
                     System.out.println(tabuleiro.renderizarAscii());
-                    System.out.printf(">>> SUA VEZ (Jogador %d - [%c]) - Rodada nº %d <<<%n", meuId, meuSimbolo, numeroSequencia);
+                    System.out.printf("SUA VEZ (Jogador %d - [%c]) - Rodada nº %d <<<%n", meuId, meuSimbolo, numeroSequencia);
 
                     int casa = lerCasaValida(scanner, tabuleiro);
                     if (casa == -1) break;
@@ -139,16 +133,15 @@ public class Jogador {
                     MensagemJogada msg = new MensagemJogada(numeroSequencia, casa, tabuleiro.getGrade(), resultado);
                     escritorSocket.println(msg.paraJson());
 
-                    // Transmissão Multicast para os Displays
                     Display.transmitirJogada(msg, multicastIp, multicastPorta);
 
                     if (MensagemJogada.RESULTADO_VITORIA.equals(resultado)) {
                         System.out.println(tabuleiro.renderizarAscii());
-                        System.out.println("🎉 PARABÉNS! VOCÊ VENCEU O JOGO!");
+                        System.out.println("VOCÊ VENCEU O JOGO!");
                         break;
                     } else if (MensagemJogada.RESULTADO_EMPATE.equals(resultado)) {
                         System.out.println(tabuleiro.renderizarAscii());
-                        System.out.println("🤝 O JOGO TERMINOU EM EMPATE!");
+                        System.out.println("O JOGO TERMINOU EM EMPATE");
                         break;
                     }
 
@@ -178,12 +171,9 @@ public class Jogador {
                         break;
                     }
 
-                    // Se recebemos de volta a nossa própria jogada (mesmo número e jogada), significa que o oponente
-                    // rejeitou o lance por inconsistência (anti-cheat do PDF) e exige correção.
                     if (msgRecebida.getNumero() == numeroSequencia - 1 && msgRecebida.getJogada() == ultimaCasaJogada) {
-                        System.out.println("\n⚠️ [AVISO] Sua última jogada foi rejeitada pelo oponente!");
-                        System.out.println("⚠️ Você deve corrigir a sua jogada.");
-                        // Desfaz a jogada no tabuleiro local e retrocede a sequência
+                        System.out.println("\n Sua última jogada foi rejeitada pelo oponente!");
+                        System.out.println(" Você deve corrigir a sua jogada.");
                         if (ultimaCasaJogada >= 0) {
                             tabuleiro.desfazer(ultimaCasaJogada);
                             ultimaCasaJogada = -1;
@@ -193,7 +183,6 @@ public class Jogador {
                         continue;
                     }
 
-                    // Anti-Cheat (conforme PDF): Validação do número de sequência e consistência da jogada
                     int casaRecebida = msgRecebida.getJogada();
                     int[] gradeRecebida = msgRecebida.getTabuleiro();
 
@@ -202,8 +191,6 @@ public class Jogador {
                             || gradeRecebida == null
                             || gradeRecebida.length != Tabuleiro.TOTAL_CASAS;
 
-                    // Validação Anti-Cheat do tabuleiro: apenas a casa indicada deve ter sido marcada com a peça do oponente,
-                    // e todas as outras 8 casas DEVEM estar estritamente inalteradas em relação ao estado local.
                     if (!jogadaInvalida) {
                         int[] gradeAtual = tabuleiro.getGrade();
                         for (int i = 0; i < Tabuleiro.TOTAL_CASAS; i++) {
@@ -222,10 +209,8 @@ public class Jogador {
                     }
 
                     if (jogadaInvalida) {
-                        System.out.printf("⚠️ [ANTI-CHEAT] Jogada inválida ou trapaça do oponente detectada (Casa: %d, Sequência recebida: %d, esperada: %d).%n",
-                                casaRecebida, msgRecebida.getNumero(), numeroSequencia);
-                        System.out.println("⚠️ Devolvendo a mensagem ao oponente sem avançar turno para que ele corrija...");
-                        // Devolve a mesma mensagem recebida sem incrementar numeroSequencia (conforme exemplo do PDF)
+                        System.out.printf("Jogada inválida.");
+                        System.out.println("Devolvendo a mensagem ao oponente");
                         escritorSocket.println(msgRecebida.paraJson());
                         continue;
                     }
@@ -237,9 +222,8 @@ public class Jogador {
                     if (MensagemJogada.RESULTADO_VITORIA.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.verificarVitoria(oponenteId)) {
                         System.out.println(tabuleiro.renderizarAscii());
-                        System.out.println("💀 O OPONENTE VENCEU A PARTIDA!");
+                        System.out.println("Você perdeu!");
 
-                        // Envia mensagem "der" aceitando a derrota para o oponente
                         MensagemJogada derrota = new MensagemJogada(
                                 msgRecebida.getNumero() + 1, -1, tabuleiro.getGrade(), MensagemJogada.RESULTADO_DERROTA
                         );
@@ -252,7 +236,7 @@ public class Jogador {
                     } else if (MensagemJogada.RESULTADO_EMPATE.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.estaCheio()) {
                         System.out.println(tabuleiro.renderizarAscii());
-                        System.out.println("🤝 A PARTIDA TERMINOU EM EMPATE!");
+                        System.out.println("EMPATE");
                         break;
                     }
 
@@ -275,10 +259,6 @@ public class Jogador {
         }
     }
 
-    /**
-     * Lê "linha coluna" (ex.: "1 2" ou "1,2") e devolve a casa [0..8] correspondente.
-     * Retorna -1 se a entrada padrão for encerrada.
-     */
     private int lerCasaValida(Scanner scanner, Tabuleiro tabuleiro) {
         while (true) {
             System.out.print("Escolha LINHA e COLUNA (0 a 2), ex: 1 2 : ");

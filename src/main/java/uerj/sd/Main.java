@@ -4,10 +4,6 @@ import uerj.sd.display.Display;
 import uerj.sd.jogador.Jogador;
 import uerj.sd.servidor.ServidorMatch;
 
-/**
- * Ponto de entrada unificado para execução dos módulos do sistema:
- * Servidor (RMI), Jogador (P2P + Multicast) e Display (Multicast).
- */
 public class Main {
 
     public static void main(String[] args) {
@@ -62,14 +58,10 @@ public class Main {
 
     private static void exibirAjuda() {
         System.out.println("""
-            =========================================================================
-             Sistema Distribuído de Turnos (RMI + Sockets P2P + Multicast Nativo)    
-            =========================================================================
             Uso:
               java -jar app.jar server  [--port <porta>] [--id <NN>]
               java -jar app.jar player  [--server-ip <ip>] [--server-port <porta>] [--port <porta>] [--id <NN>]
               java -jar app.jar display [--multicast-ip <ip>] [--multicast-port <porta>] [--id <NN>]
-            =========================================================================
             """);
     }
 }
