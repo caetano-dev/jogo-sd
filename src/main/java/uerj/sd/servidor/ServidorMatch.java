@@ -31,7 +31,7 @@ public class ServidorMatch {
             registro.rebind(NOME_SERVICO, servico);
 
             System.out.println("=================================================");
-            System.out.println(" Servidor de Matchmaking (Connect Four) Iniciado ");
+            System.out.println(" Servidor de Matchmaking (Jogo da Velha) Iniciado ");
             System.out.println(" Porta RMI: " + porta);
             System.out.println(" Nome do Serviço: " + NOME_SERVICO);
             System.out.println(" IP RMI Hostname: " + System.getProperty("java.rmi.server.hostname"));

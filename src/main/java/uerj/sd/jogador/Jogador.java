@@ -54,7 +54,7 @@ public class Jogador {
 
         try {
             System.out.println("==================================================");
-            System.out.println("           Conectando ao Connect Four             ");
+            System.out.println("           Conectando ao Jogo da Velha            ");
             System.out.printf(" Servidor RMI: %s:%d%n", rmiIp, rmiPorta);
             System.out.printf(" Minha conexão P2P: %s:%d%n", meuIp, minhaPorta);
             System.out.printf(" Multicast Display: %s:%d%n", multicastIp, multicastPorta);
@@ -125,16 +125,16 @@ public class Jogador {
                     System.out.println(tabuleiro.renderizarAscii());
                     System.out.printf(">>> SUA VEZ (Jogador %d - [%c]) - Rodada nº %d <<<%n", meuId, meuSimbolo, numeroSequencia);
 
-                    int coluna = lerColunaValida(scanner, tabuleiro);
-                    if (coluna == -1) break;
+                    int casa = lerCasaValida(scanner, tabuleiro);
+                    if (casa == -1) break;
 
-                    tabuleiro.soltarPeca(coluna, meuId);
+                    tabuleiro.jogar(casa, meuId);
 
                     String resultado = tabuleiro.verificarVitoria(meuId) ? MensagemJogada.RESULTADO_VITORIA
                             : tabuleiro.estaCheio() ? MensagemJogada.RESULTADO_EMPATE
                             : MensagemJogada.RESULTADO_JOGANDO;
 
-                    MensagemJogada msg = new MensagemJogada(numeroSequencia, coluna, tabuleiro.getGrade(), resultado);
+                    MensagemJogada msg = new MensagemJogada(numeroSequencia, casa, tabuleiro.getGrade(), resultado);
                     escritorSocket.println(msg.paraJson());
 
                     // Transmissão Multicast para os Displays
@@ -152,7 +152,9 @@ public class Jogador {
 
                     numeroSequencia++;
                     meuTurno = false;
-                    System.out.println("Jogada enviada! Aguardando oponente jogar...");
+                    System.out.println(tabuleiro.renderizarAscii());
+                    System.out.printf("Você jogou na linha %d, coluna %d. Aguardando oponente jogar...%n",
+                            casa / Tabuleiro.COLUNAS, casa % Tabuleiro.COLUNAS);
 
                 } else {
                     String linha = leitorSocket.readLine();
@@ -176,14 +178,14 @@ public class Jogador {
 
                     // Validação da jogada recebida
                     int col = msgRecebida.getJogada();
-                    if (col < 0 || col >= Tabuleiro.COLUNAS || !tabuleiro.colunaValida(col)) {
-                        System.out.printf("⚠️ Jogada inválida do oponente (Coluna %d). Ignorando.%n", col);
+                    if (!tabuleiro.casaValida(col)) {
+                        System.out.printf("⚠️ Jogada inválida do oponente (Casa %d). Ignorando.%n", col);
                         continue;
                     }
 
-                    tabuleiro.soltarPeca(col, oponenteId);
-                    System.out.printf("%n>>> Oponente (Jogador %d - [%c]) jogou na coluna %d%n",
-                            oponenteId, oponenteSimbolo, col);
+                    tabuleiro.jogar(col, oponenteId);
+                    System.out.printf("%n>>> Oponente (Jogador %d - [%c]) jogou na linha %d, coluna %d%n",
+                            oponenteId, oponenteSimbolo, col / Tabuleiro.COLUNAS, col % Tabuleiro.COLUNAS);
 
                     if (MensagemJogada.RESULTADO_VITORIA.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.verificarVitoria(oponenteId)) {
@@ -226,19 +228,34 @@ public class Jogador {
         }
     }
 
-    private int lerColunaValida(Scanner scanner, Tabuleiro tabuleiro) {
+    /**
+     * Lê "linha coluna" (ex.: "1 2" ou "1,2") e devolve a casa [0..8] correspondente.
+     * Retorna -1 se a entrada padrão for encerrada.
+     */
+    private int lerCasaValida(Scanner scanner, Tabuleiro tabuleiro) {
         while (true) {
-            System.out.print("Escolha a coluna (0 a 6): ");
+            System.out.print("Escolha LINHA e COLUNA (0 a 2), ex: 1 2 : ");
             if (!scanner.hasNextLine()) return -1;
-            String entrada = scanner.nextLine().trim();
+            String[] partes = scanner.nextLine().trim().split("[\\s,;]+");
+            if (partes.length != 2) {
+                System.out.println("❌ Informe dois números: linha e coluna (ex: 1 2).");
+                continue;
+            }
             try {
-                int col = Integer.parseInt(entrada);
-                if (col >= 0 && col < Tabuleiro.COLUNAS && tabuleiro.colunaValida(col)) {
-                    return col;
+                int linha = Integer.parseInt(partes[0]);
+                int coluna = Integer.parseInt(partes[1]);
+                if (linha < 0 || linha >= Tabuleiro.LINHAS || coluna < 0 || coluna >= Tabuleiro.COLUNAS) {
+                    System.out.println("❌ Linha e coluna devem estar entre 0 e 2.");
+                    continue;
                 }
-                System.out.println("❌ Coluna inválida ou cheia (0 a 6). Tente novamente.");
+                int casa = Tabuleiro.paraCasa(linha, coluna);
+                if (!tabuleiro.casaValida(casa)) {
+                    System.out.println("❌ Essa casa já está ocupada. Escolha outra.");
+                    continue;
+                }
+                return casa;
             } catch (NumberFormatException e) {
-                System.out.println("❌ Digite um número inteiro entre 0 e 6.");
+                System.out.println("❌ Digite números inteiros entre 0 e 2.");
             }
         }
     }

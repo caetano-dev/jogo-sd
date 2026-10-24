@@ -84,8 +84,9 @@ public class Display {
 
     public static void exibirMensagem(MensagemJogada msg) {
         if (msg == null) return;
-        System.out.printf("%n>>> Transmissão Multicast | Jogada nº: %d | Coluna jogada: %d%n",
-                msg.getNumero(), msg.getJogada());
+        System.out.printf("%n>>> Transmissão Multicast | Jogada nº: %d | Casa: %d (linha %d, coluna %d)%n",
+                msg.getNumero(), msg.getJogada(),
+                msg.getJogada() / Tabuleiro.COLUNAS, msg.getJogada() % Tabuleiro.COLUNAS);
 
         if (msg.getTabuleiro() != null && msg.getTabuleiro().length == Tabuleiro.TOTAL_CASAS) {
             System.out.println(new Tabuleiro(msg.getTabuleiro()).renderizarAscii());

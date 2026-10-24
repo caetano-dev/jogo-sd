@@ -3,18 +3,25 @@ package uerj.sd.jogo;
 import java.util.Arrays;
 
 /**
- * Representa o tabuleiro do jogo Connect Four (Lig 4).
- * Dimensões: 6 linhas (0 a 5, sendo 0 o topo e 5 a base) por 7 colunas (0 a 6).
- * Total de 42 posições mapeadas como: pos = linha * 7 + coluna.
+ * Representa o tabuleiro do Jogo da Velha (conforme o enunciado do trabalho).
+ * Dimensões: 3 linhas (0 a 2) por 3 colunas (0 a 2).
+ * Total de 9 casas mapeadas como: casa = linha * 3 + coluna  (casas [0..8]).
  */
 public class Tabuleiro {
-    public static final int LINHAS = 6;
-    public static final int COLUNAS = 7;
-    public static final int TOTAL_CASAS = LINHAS * COLUNAS; // 42
+    public static final int LINHAS = 3;
+    public static final int COLUNAS = 3;
+    public static final int TOTAL_CASAS = LINHAS * COLUNAS; // 9
 
     public static final int VAZIO = 0;
     public static final int JOGADOR_1 = 1;
     public static final int JOGADOR_2 = 2;
+
+    /** Todas as combinações vencedoras (3 linhas, 3 colunas, 2 diagonais). */
+    private static final int[][] LINHAS_VITORIA = {
+            {0, 1, 2}, {3, 4, 5}, {6, 7, 8},
+            {0, 3, 6}, {1, 4, 7}, {2, 5, 8},
+            {0, 4, 8}, {2, 4, 6}
+    };
 
     private final int[] grade;
 
@@ -37,105 +44,58 @@ public class Tabuleiro {
     }
 
     /**
+     * Converte (linha, coluna) no índice da casa [0..8].
+     */
+    public static int paraCasa(int linha, int coluna) {
+        return linha * COLUNAS + coluna;
+    }
+
+    /**
      * Obtém o valor em uma linha e coluna específicas.
      */
     public int getValor(int linha, int coluna) {
         if (linha < 0 || linha >= LINHAS || coluna < 0 || coluna >= COLUNAS) {
             throw new IndexOutOfBoundsException("Coordenada fora do tabuleiro: [" + linha + ", " + coluna + "]");
         }
-        return grade[linha * COLUNAS + coluna];
+        return grade[paraCasa(linha, coluna)];
     }
 
     /**
-     * Verifica se a coluna é válida e se possui espaço para mais uma peça.
+     * Verifica se a casa está dentro do tabuleiro e livre.
      */
-    public boolean colunaValida(int coluna) {
-        if (coluna < 0 || coluna >= COLUNAS) {
+    public boolean casaValida(int casa) {
+        return casa >= 0 && casa < TOTAL_CASAS && grade[casa] == VAZIO;
+    }
+
+    /**
+     * Marca a casa com a peça do jogador. Retorna true se a jogada foi aplicada.
+     */
+    public boolean jogar(int casa, int idJogador) {
+        if (!casaValida(casa)) {
             return false;
         }
-        // Linha 0 é o topo da coluna. Se estiver ocupada, a coluna está cheia.
-        return grade[coluna] == VAZIO;
+        grade[casa] = idJogador;
+        return true;
     }
 
     /**
-     * Aplica a gravidade: insere a peça do jogador na posição livre mais baixa da coluna.
-     * Retorna o índice da linha onde a peça caiu, ou -1 se a coluna estiver cheia.
-     */
-    public int soltarPeca(int coluna, int idJogador) {
-        if (coluna < 0 || coluna >= COLUNAS) {
-            return -1;
-        }
-        for (int linha = LINHAS - 1; linha >= 0; linha--) {
-            int indice = linha * COLUNAS + coluna;
-            if (grade[indice] == VAZIO) {
-                grade[indice] = idJogador;
-                return linha;
-            }
-        }
-        return -1; // Coluna cheia
-    }
-
-    /**
-     * Verifica se o jogador indicado possui 4 peças alinhadas (horizontal, vertical ou diagonal).
+     * Verifica se o jogador possui 3 peças alinhadas (linha, coluna ou diagonal).
      */
     public boolean verificarVitoria(int idJogador) {
-        // 1. Horizontal
-        for (int r = 0; r < LINHAS; r++) {
-            for (int c = 0; c <= COLUNAS - 4; c++) {
-                if (grade[r * COLUNAS + c] == idJogador &&
-                    grade[r * COLUNAS + c + 1] == idJogador &&
-                    grade[r * COLUNAS + c + 2] == idJogador &&
-                    grade[r * COLUNAS + c + 3] == idJogador) {
-                    return true;
-                }
+        for (int[] l : LINHAS_VITORIA) {
+            if (grade[l[0]] == idJogador && grade[l[1]] == idJogador && grade[l[2]] == idJogador) {
+                return true;
             }
         }
-
-        // 2. Vertical
-        for (int r = 0; r <= LINHAS - 4; r++) {
-            for (int c = 0; c < COLUNAS; c++) {
-                if (grade[r * COLUNAS + c] == idJogador &&
-                    grade[(r + 1) * COLUNAS + c] == idJogador &&
-                    grade[(r + 2) * COLUNAS + c] == idJogador &&
-                    grade[(r + 3) * COLUNAS + c] == idJogador) {
-                    return true;
-                }
-            }
-        }
-
-        // 3. Diagonal descendente (\)
-        for (int r = 0; r <= LINHAS - 4; r++) {
-            for (int c = 0; c <= COLUNAS - 4; c++) {
-                if (grade[r * COLUNAS + c] == idJogador &&
-                    grade[(r + 1) * COLUNAS + c + 1] == idJogador &&
-                    grade[(r + 2) * COLUNAS + c + 2] == idJogador &&
-                    grade[(r + 3) * COLUNAS + c + 3] == idJogador) {
-                    return true;
-                }
-            }
-        }
-
-        // 4. Diagonal ascendente (/)
-        for (int r = 3; r < LINHAS; r++) {
-            for (int c = 0; c <= COLUNAS - 4; c++) {
-                if (grade[r * COLUNAS + c] == idJogador &&
-                    grade[(r - 1) * COLUNAS + c + 1] == idJogador &&
-                    grade[(r - 2) * COLUNAS + c + 2] == idJogador &&
-                    grade[(r - 3) * COLUNAS + c + 3] == idJogador) {
-                    return true;
-                }
-            }
-        }
-
         return false;
     }
 
     /**
-     * Verifica se o tabuleiro está completamente preenchido (todas as 42 casas ocupadas).
+     * Verifica se todas as 9 casas estão ocupadas.
      */
     public boolean estaCheio() {
-        for (int c = 0; c < COLUNAS; c++) {
-            if (grade[c] == VAZIO) {
+        for (int v : grade) {
+            if (v == VAZIO) {
                 return false;
             }
         }
@@ -150,29 +110,21 @@ public class Tabuleiro {
     }
 
     /**
-     * Renderiza o tabuleiro em arte ASCII.
+     * Renderiza o tabuleiro em arte ASCII, com índices de linha e coluna.
      */
     public String renderizarAscii() {
         StringBuilder sb = new StringBuilder();
-        sb.append("\n  0   1   2   3   4   5   6\n");
-        sb.append("+---+---+---+---+---+---+---+\n");
+        sb.append("\n     0   1   2\n");
+        sb.append("   +---+---+---+\n");
         for (int r = 0; r < LINHAS; r++) {
-            sb.append("|");
+            sb.append(' ').append(r).append(" |");
             for (int c = 0; c < COLUNAS; c++) {
-                int valor = grade[r * COLUNAS + c];
-                String simbolo;
-                if (valor == JOGADOR_1) {
-                    simbolo = " X ";
-                } else if (valor == JOGADOR_2) {
-                    simbolo = " O ";
-                } else {
-                    simbolo = "   ";
-                }
+                int valor = grade[paraCasa(r, c)];
+                String simbolo = valor == JOGADOR_1 ? " X " : valor == JOGADOR_2 ? " O " : "   ";
                 sb.append(simbolo).append("|");
             }
-            sb.append("\n+---+---+---+---+---+---+---+\n");
+            sb.append("\n   +---+---+---+\n");
         }
-        sb.append("  0   1   2   3   4   5   6\n");
         return sb.toString();
     }
 }
