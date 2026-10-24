@@ -29,7 +29,6 @@ public class TransmissaoDisplayTest {
 
         assertNotNull(socket, "Socket multicast deve ser inicializado com sucesso");
 
-        // Pequeno intervalo para o socket se registrar no grupo
         Thread.sleep(200);
 
         Tabuleiro tab = new Tabuleiro();

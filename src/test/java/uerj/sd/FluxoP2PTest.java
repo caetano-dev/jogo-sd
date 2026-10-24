@@ -22,7 +22,6 @@ public class FluxoP2PTest {
         int porta = 9123;
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
-        // Jogador 2 (servidor TCP)
         Future<Boolean> futJogador2 = executor.submit(() -> {
             try (ServerSocket server = new ServerSocket(porta);
                  Socket socket = server.accept();
@@ -31,19 +30,16 @@ public class FluxoP2PTest {
 
                 Tabuleiro tabLocal = new Tabuleiro();
 
-                // Recebe jogada 0 do Jogador 1 (casa 4 - centro)
                 String linha0 = in.readLine();
                 MensagemJogada msg0 = MensagemJogada.deJson(linha0);
                 assertEquals(0, msg0.getNumero());
                 assertEquals(4, msg0.getJogada());
                 tabLocal.jogar(msg0.getJogada(), Tabuleiro.JOGADOR_1);
 
-                // Jogador 2 responde com jogada 1 (casa 0 - canto superior esquerdo)
                 tabLocal.jogar(0, Tabuleiro.JOGADOR_2);
                 MensagemJogada msg1 = new MensagemJogada(1, 0, tabLocal.getGrade(), MensagemJogada.RESULTADO_JOGANDO);
                 out.println(msg1.paraJson());
 
-                // Recebe jogada 2 do Jogador 1 (casa 1)
                 String linha2 = in.readLine();
                 MensagemJogada msg2 = MensagemJogada.deJson(linha2);
                 assertEquals(2, msg2.getNumero());
@@ -53,7 +49,6 @@ public class FluxoP2PTest {
             }
         });
 
-        // Jogador 1 (cliente TCP)
         Future<Boolean> futJogador1 = executor.submit(() -> {
             Thread.sleep(100);
             try (Socket socket = new Socket("127.0.0.1", porta);
@@ -62,19 +57,16 @@ public class FluxoP2PTest {
 
                 Tabuleiro tabLocal = new Tabuleiro();
 
-                // Jogada 0 (casa 4 - centro)
                 tabLocal.jogar(4, Tabuleiro.JOGADOR_1);
                 MensagemJogada msg0 = new MensagemJogada(0, 4, tabLocal.getGrade(), MensagemJogada.RESULTADO_JOGANDO);
                 out.println(msg0.paraJson());
 
-                // Aguarda jogada 1 do Jogador 2
                 String linha1 = in.readLine();
                 MensagemJogada msg1 = MensagemJogada.deJson(linha1);
                 assertEquals(1, msg1.getNumero());
                 assertEquals(0, msg1.getJogada());
                 tabLocal.jogar(msg1.getJogada(), Tabuleiro.JOGADOR_2);
 
-                // Jogada 2 (casa 1)
                 tabLocal.jogar(1, Tabuleiro.JOGADOR_1);
                 MensagemJogada msg2 = new MensagemJogada(2, 1, tabLocal.getGrade(), MensagemJogada.RESULTADO_JOGANDO);
                 out.println(msg2.paraJson());

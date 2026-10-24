@@ -5,7 +5,7 @@ import java.util.Arrays;
 public class Tabuleiro {
     public static final int LINHAS = 3;
     public static final int COLUNAS = 3;
-    public static final int TOTAL_CASAS = LINHAS * COLUNAS; // 9
+    public static final int TOTAL_CASAS = LINHAS * COLUNAS;
 
     public static final int VAZIO = 0;
     public static final int JOGADOR_1 = 1;

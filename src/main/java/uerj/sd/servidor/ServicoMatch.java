@@ -44,11 +44,9 @@ public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInt
         String minhaChave = req.ip() + ":" + req.porta();
 
         if (fila.containsKey(protocolo)) {
-            // Par encontrado
             RequisicaoMatch oponente = fila.remove(protocolo);
             String chaveOponente = oponente.ip() + ":" + oponente.porta();
 
-            // O primeiro que esperou na fila inicia a partida
             respostas.put(chaveOponente, new RespostaMatch(req.ip(), req.porta(), true));
             notifyAll();
 

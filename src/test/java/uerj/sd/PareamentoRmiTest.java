@@ -13,7 +13,6 @@ public class PareamentoRmiTest {
 
     @Test
     public void testPareamentoDoisJogadores() throws Exception {
-        // Servidor com timeout de 5 segundos
         ServicoMatch servico = new ServicoMatch(5);
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
@@ -25,7 +24,6 @@ public class PareamentoRmiTest {
         };
 
         Callable<RespostaMatch> jogador2Task = () -> {
-            // Pequeno delay para garantir que jogador 1 entre primeiro na fila
             Thread.sleep(100);
             RequisicaoMatch req = new RequisicaoMatch("127.0.0.1", 9002, "tcp");
             String ret = servico.getOponent(req.paraJson());
@@ -44,7 +42,6 @@ public class PareamentoRmiTest {
         assertFalse(resp1.temErro(), "Jogador 1 não deve receber erro");
         assertFalse(resp2.temErro(), "Jogador 2 não deve receber erro");
 
-        // Jogador 1 deve ter recebido dados de 2, e Jogador 2 dados de 1
         assertEquals("127.0.0.1", resp1.getIp());
         assertEquals(9002, resp1.getPorta());
         assertTrue(resp1.getInicia(), "Jogador 1 (primeiro na fila) deve receber inicia = true");
@@ -58,7 +55,6 @@ public class PareamentoRmiTest {
 
     @Test
     public void testTimeoutJogadorSemPar() throws Exception {
-        // Servidor com timeout curto de 1 segundo
         ServicoMatch servico = new ServicoMatch(1);
 
         RequisicaoMatch req = new RequisicaoMatch("127.0.0.1", 9005, "tcp");

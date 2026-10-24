@@ -109,7 +109,6 @@ public class Jogador {
             PrintWriter escritorSocket = new PrintWriter(
                     new OutputStreamWriter(socketP2P.getOutputStream(), StandardCharsets.UTF_8), true);
 
-            // 3. Loop de Turnos do Jogo
             Tabuleiro tabuleiro = new Tabuleiro();
             int numeroSequencia = 0;
             boolean meuTurno = souIniciante;
