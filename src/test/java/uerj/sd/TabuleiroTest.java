@@ -72,12 +72,6 @@ public class TabuleiroTest {
 
     @Test
     public void testTabuleiroCheioEmpate() {
-        /*
-           Grade de velha sem vencedor:
-           X | O | X
-           X | O | O
-           O | X | X
-        */
         int[] gradeEmpate = {
                 Tabuleiro.JOGADOR_1, Tabuleiro.JOGADOR_2, Tabuleiro.JOGADOR_1,
                 Tabuleiro.JOGADOR_1, Tabuleiro.JOGADOR_2, Tabuleiro.JOGADOR_2,
