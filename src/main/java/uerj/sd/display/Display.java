@@ -18,13 +18,16 @@ public class Display {
     public static final int PORTA_MULTICAST_PADRAO = 8801;
 
     public static void transmitirJogada(MensagemJogada msg, String ipMulticast, int portaMulticast) {
-        if (msg == null) return;
+        if (msg == null)
+            return;
         try (MulticastSocket socket = new MulticastSocket()) {
             NetworkInterface ni = obterInterfaceDeRede();
-            if (ni != null) socket.setNetworkInterface(ni);
+            if (ni != null)
+                socket.setNetworkInterface(ni);
             socket.setTimeToLive(2);
             byte[] bytes = msg.paraJson().getBytes(StandardCharsets.UTF_8);
-            DatagramPacket pacote = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(ipMulticast), portaMulticast);
+            DatagramPacket pacote = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(ipMulticast),
+                    portaMulticast);
             socket.send(pacote);
         } catch (Exception e) {
             System.err.println("[Display] Aviso: Falha ao transmitir via multicast: " + e.getMessage());
@@ -40,7 +43,7 @@ public class Display {
     }
 
     public static MulticastSocket ouvirMulticast(String ipMulticast, int portaMulticast,
-                                                Consumer<MensagemJogada> callback, boolean bloquear) {
+            Consumer<MensagemJogada> callback, boolean bloquear) {
         try {
             MulticastSocket socket = new MulticastSocket(portaMulticast);
             InetAddress grupo = InetAddress.getByName(ipMulticast);
@@ -55,7 +58,8 @@ public class Display {
                     try {
                         DatagramPacket pacote = new DatagramPacket(buffer, buffer.length);
                         socket.receive(pacote);
-                        String json = new String(pacote.getData(), 0, pacote.getLength(), StandardCharsets.UTF_8).trim();
+                        String json = new String(pacote.getData(), 0, pacote.getLength(), StandardCharsets.UTF_8)
+                                .trim();
                         MensagemJogada msg = MensagemJogada.deJson(json);
                         if (msg != null && callback != null) {
                             callback.accept(msg);
@@ -83,7 +87,8 @@ public class Display {
     }
 
     public static void exibirMensagem(MensagemJogada msg) {
-        if (msg == null) return;
+        if (msg == null)
+            return;
         System.out.printf("%n>>> Transmissão Multicast | Jogada nº: %d | Casa: %d (linha %d, coluna %d)%n",
                 msg.getNumero(), msg.getJogada(),
                 msg.getJogada() / Tabuleiro.COLUNAS, msg.getJogada() % Tabuleiro.COLUNAS);
@@ -95,7 +100,7 @@ public class Display {
         switch (msg.getResultado()) {
             case MensagemJogada.RESULTADO_VITORIA -> System.out.println("🏆 RESULTADO: VITÓRIA NA PARTIDA!");
             case MensagemJogada.RESULTADO_DERROTA -> System.out.println("🏁 RESULTADO: DERROTA DECLARADA!");
-            case MensagemJogada.RESULTADO_EMPATE  -> System.out.println("🤝 RESULTADO: EMPATE!");
+            case MensagemJogada.RESULTADO_EMPATE -> System.out.println("🤝 RESULTADO: EMPATE!");
             default -> System.out.println("⏱ Estado: Partida em andamento...");
         }
     }

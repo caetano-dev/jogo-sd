@@ -8,13 +8,14 @@ import java.rmi.registry.Registry;
  */
 public class ServidorMatch {
     public static final String NOME_SERVICO = "MatchService";
-    public static final int PORTA_PADRAO = 9800;
+    public static final int PORTA_PADRAO = 9823;
 
     public static void iniciar(int porta) {
         try {
-            // Se o hostname do servidor RMI não foi informado nas flags JVM, usa localhost por padrão
+            // Se o hostname do servidor RMI não foi informado nas flags JVM, usa localhost
+            // por padrão
             if (System.getProperty("java.rmi.server.hostname") == null) {
-                System.setProperty("java.rmi.server.hostname", "127.0.0.1");
+                System.setProperty("java.rmi.server.hostname", "[IP_ADDRESS]");
             }
 
             Registry registro;
