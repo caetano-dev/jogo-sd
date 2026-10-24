@@ -1,19 +1,19 @@
-# SPEC: Sistema Distribuído de Connect Four (Lig 4) com RMI, Sockets TCP e Multicast Nativo
+# SPEC: Sistema Distribuído de Jogo da Velha (Tic-Tac-Toe) com RMI, Sockets TCP e Multicast Nativo
 
 ## 1. Visão Geral do Sistema
-O objetivo é implementar um sistema distribuído em Java para uma partida em turnos de Connect Four (Lig 4) entre dois jogadores, com infraestrutura de pareamento centralizada e transmissão em tempo real para módulos de exibição independentes (Displays).
+O objetivo é implementar um sistema distribuído em Java para uma partida em turnos de Jogo da Velha entre dois jogadores, com infraestrutura de pareamento centralizada e transmissão em tempo real para módulos de exibição independentes (Displays).
 
 O sistema implementa a arquitetura descrita na especificação de Sistemas Distribuídos:
 1. **Servidor de Match (RMI)**: Registra requisições de jogadores e realiza o pareamento (1x1).
 2. **Módulo Jogador (RMI + Socket P2P TCP + Multicast UDP)**: Busca oponente via RMI, troca jogadas por conexão Socket ponto a ponto e transmite as jogadas via Multicast para os displays.
 3. **Módulo Display (Multicast UDP)**: Conecta-se ao canal de comunicação em grupo e renderiza o tabuleiro e as jogadas em tempo real.
 
-O sistema opera localmente em diferentes terminais/sessões (usando `127.0.0.1` e portas distintas) e permite a migração para as VMs do laboratório (`152.92.236.x`) por meio de argumentos CLI.
+O sistema opera localmente em diferentes terminais/sessões (usando `127.0.0.1` e portas distintas) e permite a execução nas VMs do laboratório (`152.92.236.x`) por meio de argumentos CLI.
 
 ---
 
 ## 2. Componentes e Tecnologias
-- **Linguagem / Runtime**: Java 17+ (ou 21).
+- **Linguagem / Runtime**: Java 17+.
 - **Gerenciador de Build**: Maven.
 - **Comunicação de Matchmaking**: Java RMI (`LocateRegistry`).
 - **Comunicação entre Jogadores (P2P)**: Java Sockets TCP com controle de sequência e anti-cheat.
@@ -22,16 +22,18 @@ O sistema opera localmente em diferentes terminais/sessões (usando `127.0.0.1` 
 
 ---
 
-## 3. Regras de Negócio: Connect Four (Lig 4)
-- **Dimensões do Tabuleiro**: Matriz de 6 linhas (0 a 5) por 7 colunas (0 a 6). Total de 42 posições.
-- **Mecânica de Gravidade**: O jogador escolhe exclusivamente o índice da coluna (0 a 6). A peça ocupa a posição livre mais baixa da coluna.
+## 3. Regras de Negócio: Jogo da Velha
+- **Dimensões do Tabuleiro**: Matriz de 3 linhas (0 a 2) por 3 colunas (0 a 2). Total de 9 posições [0..8] onde `casa = linha * 3 + coluna`.
+- **Mecânica de Jogada**: O jogador escolhe a linha e a coluna desejadas (`0 a 2`). O módulo traduz internamente para o índice da casa `0 a 8`.
 - **Condições de Encerramento**:
-  - `vit`: 4 peças consecutivas do mesmo jogador (horizontal, vertical ou diagonal).
-  - `emp`: Todas as 42 casas ocupadas sem vencedor.
+  - `vit`: 3 peças consecutivas do mesmo jogador (3 linhas, 3 colunas ou 2 diagonais).
+  - `der`: Declaração de derrota enviada pelo perdedor em resposta a uma vitória confirmada.
+  - `emp`: Todas as 9 casas ocupadas sem vencedor.
   - `jog`: Partida continua.
 - **Anti-Cheat e Validação**:
-  - Validação de limites de coluna e espaço livre.
-  - Receptor valida número de sequência e consistência da jogada contra seu estado local. Se inválida, devolve a mesma mensagem sem avançar turno.
+  - Validação de limites da casa e se a posição está livre.
+  - Validação de número sequencial de rodada.
+  - Se inválida ou fora de ordem, o receptor devolve a mesma mensagem sem avançar seu estado local, notificando o usuário e obrigando o oponente a corrigir a jogada.
 
 ---
 
@@ -54,14 +56,11 @@ Transmitido via TCP entre os jogadores e via UDP Multicast (`225.1.1.NN:88NN`) p
 ```json
 {
   "Numero": 0,
-  "Jogada": 3,
+  "Jogada": 4,
   "Tabuleiro": [
-    0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 1, 0, 0, 0
+    0, 0, 0,
+    0, 1, 0,
+    0, 0, 0
   ],
   "Resultado": "jog"
 }

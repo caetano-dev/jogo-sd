@@ -79,6 +79,15 @@ public class Tabuleiro {
     }
 
     /**
+     * Desfaz uma jogada em uma casa específica, voltando ao estado VAZIO.
+     */
+    public void desfazer(int casa) {
+        if (casa >= 0 && casa < TOTAL_CASAS) {
+            grade[casa] = VAZIO;
+        }
+    }
+
+    /**
      * Verifica se o jogador possui 3 peças alinhadas (linha, coluna ou diagonal).
      */
     public boolean verificarVitoria(int idJogador) {

@@ -1,6 +1,6 @@
-# Connect Four Distribuído (Lig 4)
+# Jogo da Velha Distribuído (Tic-Tac-Toe)
 
-Sistema distribuído em Java para partida de **Connect Four (Lig 4)** em turnos entre dois jogadores, com serviço de pareamento centralizado via **Java RMI**, troca de jogadas ponto a ponto via **Sockets TCP**, e transmissão em tempo real para múltiplos observadores (**Displays**) através de **Multicast UDP Nativo** (`MulticastSocket`), estritamente conforme a especificação do trabalho.
+Sistema distribuído em Java para partida de **Jogo da Velha** em turnos entre dois jogadores, com serviço de pareamento centralizado via **Java RMI**, troca de jogadas ponto a ponto via **Sockets TCP**, e transmissão em tempo real para múltiplos observadores (**Displays**) através de **Multicast UDP Nativo** (`MulticastSocket`), estritamente conforme a especificação do trabalho da disciplina de Sistemas Distribuídos.
 
 ---
 
@@ -9,7 +9,7 @@ Sistema distribuído em Java para partida de **Connect Four (Lig 4)** em turnos 
 O sistema é dividido em três módulos principais:
 
 1. **Servidor de Matchmaking (`server`) - Java RMI**:
-   - Registra o interesse de jogadores por meio da interface remota [`MatchServiceInterface`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/main/java/uerj/sd/rmi/MatchServiceInterface.java).
+   - Registra o interesse de jogadores por meio da interface remota `MatchServiceInterface`.
    - Realiza o emparelhamento 1x1 dos jogadores que utilizam o mesmo protocolo (`tcp`).
    - Define deterministicamente quem inicia a partida (`inicia: true` para o primeiro da fila, `inicia: false` para o segundo).
    - Executa na porta designada `98NN` (ou `9800` por padrão).
@@ -17,8 +17,8 @@ O sistema é dividido em três módulos principais:
 2. **Módulo Jogador (`player`) - RMI + Sockets TCP + Multicast UDP**:
    - Localiza o oponente via RMI.
    - Estabelece conexão P2P via Socket TCP.
-   - Gerencia os turnos, validação anti-cheat (coluna dentro dos limites [0..6], espaço disponível, integridade de sequência e estado).
-   - Renderiza o tabuleiro na CLI e lê a coluna [0..6] escolhida.
+   - Gerencia os turnos e controle de consistência/anti-cheat (validação de limites [0..8], casa desocupada, sequência de rodadas).
+   - Renderiza o tabuleiro na CLI e lê a posição escolhida pelo usuário informando **linha e coluna** (`0 a 2`).
    - Transmite a cada jogada um pacote UDP Multicast para o grupo `225.1.1.NN` na porta `88NN`.
 
 3. **Módulo Display (`display`) - Multicast UDP**:
@@ -29,13 +29,18 @@ O sistema é dividido em três módulos principais:
 
 ## 2. Compilação e Geração do Executável
 
-O projeto utiliza Maven com dependências mínimas (apenas Gson para serialização de mensagens e JUnit para testes).
+O projeto utiliza Maven com dependências mínimas (Gson para serialização de mensagens e JUnit 5 para testes).
 
 ```bash
 mvn clean package
 ```
 
-O binário final é gerado em `target/app.jar` (e na raiz `./app.jar`), com apenas ~330 KB.
+O binário final é gerado em `target/app.jar` (e na raiz `./app.jar`).
+
+Também é possível compilar diretamente com `javac`:
+```powershell
+javac --release 17 -encoding UTF-8 -cp "target/lib/*" -d target/classes (Get-ChildItem -Recurse src/main/java -Filter *.java | % FullName)
+```
 
 ---
 
@@ -101,14 +106,19 @@ java -jar app.jar display --id 14
 
 ## 4. Testes Automatizados
 
-Para rodar todos os testes automatizados:
+Para rodar todos os testes automatizados com Maven:
 
 ```bash
 mvn test
 ```
 
-- [`TabuleiroTest`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/test/java/uerj/sd/TabuleiroTest.java): Lógica da matriz 6x7, gravidade, detecção de vitória nas 4 direções e empate.
-- [`PareamentoRmiTest`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/test/java/uerj/sd/PareamentoRmiTest.java): Concorrência RMI, formação de pares e timeout.
-- [`FluxoP2PTest`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/test/java/uerj/sd/FluxoP2PTest.java): Conexão TCP socket e sincronização de turnos.
-- [`TransmissaoDisplayTest`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/test/java/uerj/sd/TransmissaoDisplayTest.java): Transmissão e recebimento multicast nativo.
-- [`JogoCompletoIntegracaoTest`](file:///Users/pedrocaetano/Documents/UERJ/Sistèmes%20Distribués/trabalho%20jogo/src/test/java/uerj/sd/JogoCompletoIntegracaoTest.java): Partida ponta a ponta (RMI + TCP + Multicast).
+Ou executando o console launcher standalone do JUnit:
+```bash
+java -jar target/lib/junit-platform-console-standalone-1.10.2.jar --class-path "target/classes;target/test-classes;target/lib/gson-2.11.0.jar" --scan-class-path
+```
+
+- `TabuleiroTest`: Lógica da matriz 3x3 (9 casas), validação de casas livres, detecção de vitória nas 8 linhas/colunas/diagonais e empate.
+- `PareamentoRmiTest`: Concorrência RMI, formação de pares com exclusão mútua e timeout.
+- `FluxoP2PTest`: Conexão TCP socket e sincronização de turnos (casas 0 a 8).
+- `TransmissaoDisplayTest`: Transmissão e recebimento multicast nativo.
+- `JogoCompletoIntegracaoTest`: Partida ponta a ponta (RMI + TCP + Multicast) com vitória e encerramento.

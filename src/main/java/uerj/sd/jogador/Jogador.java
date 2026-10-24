@@ -119,6 +119,7 @@ public class Jogador {
             Tabuleiro tabuleiro = new Tabuleiro();
             int numeroSequencia = 0;
             boolean meuTurno = souIniciante;
+            int ultimaCasaJogada = -1;
 
             while (true) {
                 if (meuTurno) {
@@ -129,6 +130,7 @@ public class Jogador {
                     if (casa == -1) break;
 
                     tabuleiro.jogar(casa, meuId);
+                    ultimaCasaJogada = casa;
 
                     String resultado = tabuleiro.verificarVitoria(meuId) ? MensagemJogada.RESULTADO_VITORIA
                             : tabuleiro.estaCheio() ? MensagemJogada.RESULTADO_EMPATE
@@ -176,16 +178,38 @@ public class Jogador {
                         break;
                     }
 
-                    // Validação da jogada recebida
-                    int col = msgRecebida.getJogada();
-                    if (!tabuleiro.casaValida(col)) {
-                        System.out.printf("⚠️ Jogada inválida do oponente (Casa %d). Ignorando.%n", col);
+                    // Se recebemos de volta a nossa própria jogada (mesmo número e jogada), significa que o oponente
+                    // rejeitou o lance por inconsistência (anti-cheat do PDF) e exige correção.
+                    if (msgRecebida.getNumero() == numeroSequencia - 1 && msgRecebida.getJogada() == ultimaCasaJogada) {
+                        System.out.println("\n⚠️ [AVISO] Sua última jogada foi rejeitada pelo oponente!");
+                        System.out.println("⚠️ Você deve corrigir a sua jogada.");
+                        // Desfaz a jogada no tabuleiro local e retrocede a sequência
+                        if (ultimaCasaJogada >= 0) {
+                            tabuleiro.desfazer(ultimaCasaJogada);
+                            ultimaCasaJogada = -1;
+                        }
+                        numeroSequencia--;
+                        meuTurno = true;
                         continue;
                     }
 
-                    tabuleiro.jogar(col, oponenteId);
+                    // Anti-Cheat (conforme PDF): Validação do número de sequência e consistência da jogada
+                    int casaRecebida = msgRecebida.getJogada();
+                    boolean jogadaInvalida = msgRecebida.getNumero() != numeroSequencia
+                            || !tabuleiro.casaValida(casaRecebida);
+
+                    if (jogadaInvalida) {
+                        System.out.printf("⚠️ [ANTI-CHEAT] Jogada inválida ou trapaça do oponente (Casa: %d, Sequência recebida: %d, esperada: %d).%n",
+                                casaRecebida, msgRecebida.getNumero(), numeroSequencia);
+                        System.out.println("⚠️ Devolvendo a mensagem ao oponente sem avançar turno para que ele corrija...");
+                        // Devolve a mesma mensagem recebida sem incrementar numeroSequencia (conforme exemplo do PDF)
+                        escritorSocket.println(msgRecebida.paraJson());
+                        continue;
+                    }
+
+                    tabuleiro.jogar(casaRecebida, oponenteId);
                     System.out.printf("%n>>> Oponente (Jogador %d - [%c]) jogou na linha %d, coluna %d%n",
-                            oponenteId, oponenteSimbolo, col / Tabuleiro.COLUNAS, col % Tabuleiro.COLUNAS);
+                            oponenteId, oponenteSimbolo, casaRecebida / Tabuleiro.COLUNAS, casaRecebida % Tabuleiro.COLUNAS);
 
                     if (MensagemJogada.RESULTADO_VITORIA.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.verificarVitoria(oponenteId)) {
@@ -199,7 +223,7 @@ public class Jogador {
                         escritorSocket.println(derrota.paraJson());
 
                         Display.transmitirJogada(new MensagemJogada(
-                                msgRecebida.getNumero(), col, tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
+                                msgRecebida.getNumero(), casaRecebida, tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
                         ), multicastIp, multicastPorta);
                         break;
                     } else if (MensagemJogada.RESULTADO_EMPATE.equalsIgnoreCase(msgRecebida.getResultado()) ||

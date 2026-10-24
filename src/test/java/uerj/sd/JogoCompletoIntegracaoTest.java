@@ -43,11 +43,12 @@ public class JogoCompletoIntegracaoTest {
 
         Thread.sleep(200);
 
-        // Simulação de jogadas:
-        // Jogador 1 (inicia) joga colunas: 0, 0, 0, 0 (vertical de 4 peças)
-        // Jogador 2 joga colunas: 1, 1, 1
-        String entradaP1 = "0\n0\n0\n0\n";
-        String entradaP2 = "1\n1\n1\n";
+        // Simulação de jogadas de Jogo da Velha (linha coluna):
+        // P1 joga (0 0), P2 joga (1 0)
+        // P1 joga (0 1), P2 joga (1 1)
+        // P1 joga (0 2) -> P1 vence na linha 0!
+        String entradaP1 = "0 0\n0 1\n0 2\n";
+        String entradaP2 = "1 0\n1 1\n";
 
         ExecutorService executor = Executors.newFixedThreadPool(2);
 
@@ -80,10 +81,10 @@ public class JogoCompletoIntegracaoTest {
         executor.shutdown();
 
         assertTrue(displayRecebeuVitoria, "O Display deve ter recebido a notificação de vitória pelo Multicast nativo");
-        assertTrue(eventosRecebidos.size() >= 4, "Display deve ter recebido os eventos das jogadas");
+        assertTrue(eventosRecebidos.size() >= 3, "Display deve ter recebido os eventos das jogadas");
 
         MensagemJogada ultimoEvento = eventosRecebidos.get(eventosRecebidos.size() - 1);
         assertEquals("vit", ultimoEvento.getResultado());
-        assertEquals(0, ultimoEvento.getJogada());
+        assertEquals(2, ultimoEvento.getJogada()); // casa 2 = linha 0, coluna 2
     }
 }

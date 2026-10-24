@@ -33,11 +33,11 @@ public class TransmissaoDisplayTest {
         Thread.sleep(200);
 
         Tabuleiro tab = new Tabuleiro();
-        tab.soltarPeca(3, Tabuleiro.JOGADOR_1);
+        tab.jogar(4, Tabuleiro.JOGADOR_1);
 
         MensagemJogada jogada = new MensagemJogada(
                 0,
-                3,
+                4,
                 tab.getGrade(),
                 MensagemJogada.RESULTADO_JOGANDO
         );
@@ -49,7 +49,7 @@ public class TransmissaoDisplayTest {
 
         assertTrue(sucesso, "O Display deve ter recebido a jogada via Multicast nativo");
         assertNotNull(msgRecebida.get());
-        assertEquals(3, msgRecebida.get().getJogada());
+        assertEquals(4, msgRecebida.get().getJogada());
         assertEquals(0, msgRecebida.get().getNumero());
         assertEquals(MensagemJogada.RESULTADO_JOGANDO, msgRecebida.get().getResultado());
     }
