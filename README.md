@@ -1,5 +1,7 @@
 # Jogo da Velha Distribuído (Tic-Tac-Toe)
 
+Alunos: Pedro Caetano Pires e Vinicius Suriano.
+
 ## Compilação
 
 ```bash
