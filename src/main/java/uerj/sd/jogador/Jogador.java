@@ -195,11 +195,34 @@ public class Jogador {
 
                     // Anti-Cheat (conforme PDF): Validação do número de sequência e consistência da jogada
                     int casaRecebida = msgRecebida.getJogada();
+                    int[] gradeRecebida = msgRecebida.getTabuleiro();
+
                     boolean jogadaInvalida = msgRecebida.getNumero() != numeroSequencia
-                            || !tabuleiro.casaValida(casaRecebida);
+                            || !tabuleiro.casaValida(casaRecebida)
+                            || gradeRecebida == null
+                            || gradeRecebida.length != Tabuleiro.TOTAL_CASAS;
+
+                    // Validação Anti-Cheat do tabuleiro: apenas a casa indicada deve ter sido marcada com a peça do oponente,
+                    // e todas as outras 8 casas DEVEM estar estritamente inalteradas em relação ao estado local.
+                    if (!jogadaInvalida) {
+                        int[] gradeAtual = tabuleiro.getGrade();
+                        for (int i = 0; i < Tabuleiro.TOTAL_CASAS; i++) {
+                            if (i == casaRecebida) {
+                                if (gradeRecebida[i] != oponenteId) {
+                                    jogadaInvalida = true;
+                                    break;
+                                }
+                            } else {
+                                if (gradeRecebida[i] != gradeAtual[i]) {
+                                    jogadaInvalida = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
 
                     if (jogadaInvalida) {
-                        System.out.printf("⚠️ [ANTI-CHEAT] Jogada inválida ou trapaça do oponente (Casa: %d, Sequência recebida: %d, esperada: %d).%n",
+                        System.out.printf("⚠️ [ANTI-CHEAT] Jogada inválida ou trapaça do oponente detectada (Casa: %d, Sequência recebida: %d, esperada: %d).%n",
                                 casaRecebida, msgRecebida.getNumero(), numeroSequencia);
                         System.out.println("⚠️ Devolvendo a mensagem ao oponente sem avançar turno para que ele corrija...");
                         // Devolve a mesma mensagem recebida sem incrementar numeroSequencia (conforme exemplo do PDF)
