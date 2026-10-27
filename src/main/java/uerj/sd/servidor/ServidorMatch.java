@@ -7,10 +7,10 @@ public class ServidorMatch {
     public static final String NOME_SERVICO = "MatchService";
     public static final int PORTA_PADRAO = 9823;
 
-    public static void iniciar(int porta) {
+    public static void iniciar(int porta, String host) {
         try {
             if (System.getProperty("java.rmi.server.hostname") == null) {
-                System.setProperty("java.rmi.server.hostname", "[IP_ADDRESS]");
+                System.setProperty("java.rmi.server.hostname", host);
             }
 
             Registry registro;

@@ -17,6 +17,7 @@ import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.Arrays;
 import java.util.Scanner;
 
 public class Jogador {
@@ -27,10 +28,6 @@ public class Jogador {
     private final int minhaPorta;
     private final String multicastIp;
     private final int multicastPorta;
-
-    public Jogador(String rmiIp, int rmiPorta, String meuIp, int minhaPorta) {
-        this(rmiIp, rmiPorta, meuIp, minhaPorta, Display.IP_MULTICAST_PADRAO, Display.PORTA_MULTICAST_PADRAO);
-    }
 
     public Jogador(String rmiIp, int rmiPorta, String meuIp, int minhaPorta, String multicastIp, int multicastPorta) {
         this.rmiIp = rmiIp;
@@ -51,10 +48,12 @@ public class Jogador {
 
         try {
             System.out.println("Conectando ao Jogo da Velha");
-            System.out.printf(" Servidor RMI: %s:%d%n", rmiIp, rmiPorta);
-            System.out.printf(" Minha conexão P2P: %s:%d%n", meuIp, minhaPorta);
-            System.out.printf(" Multicast Display: %s:%d%n", multicastIp, multicastPorta);
+            System.out.printf("Servidor RMI: %s:%d%n", rmiIp, rmiPorta);
+            System.out.printf("Minha conexão P2P: %s:%d%n", meuIp, minhaPorta);
+            System.out.printf("Multicast Display: %s:%d%n", multicastIp, multicastPorta);
             System.out.println("-----------------------------");
+
+            serverSocket = new ServerSocket(minhaPorta);
 
             System.out.println("[Jogador] Buscando oponente no servidor de match...");
             Registry registro = LocateRegistry.getRegistry(rmiIp, rmiPorta);
@@ -85,7 +84,7 @@ public class Jogador {
 
             if (souIniciante) {
                 System.out.println("[Jogador] Conectando ao socket do oponente...");
-                for (int t = 0; t < 20 && socketP2P == null; t++) {
+                for (int t = 0; t < 100 && socketP2P == null; t++) {
                     try {
                         socketP2P = new Socket(oponenteIp, oponentePorta);
                     } catch (Exception e) {
@@ -98,10 +97,10 @@ public class Jogador {
                 }
             } else {
                 System.out.printf("[Jogador] Aguardando conexão do oponente na porta %d...%n", minhaPorta);
-                serverSocket = new ServerSocket(minhaPorta);
                 socketP2P = serverSocket.accept();
             }
 
+            socketP2P.setSoTimeout(120_000);
             System.out.println("[Jogador] Conexão P2P estabelecida! Iniciando partida...");
 
             BufferedReader leitorSocket = new BufferedReader(
@@ -117,7 +116,7 @@ public class Jogador {
             while (true) {
                 if (meuTurno) {
                     System.out.println(tabuleiro.renderizarAscii());
-                    System.out.printf("SUA VEZ (Jogador %d - [%c]) - Rodada nº %d <<<%n", meuId, meuSimbolo, numeroSequencia);
+                    System.out.printf("SUA VEZ (Jogador %d - [%c]) - Rodada n %d <<<%n", meuId, meuSimbolo, numeroSequencia);
 
                     int casa = lerCasaValida(scanner, tabuleiro);
                     if (casa == -1) break;
@@ -166,13 +165,13 @@ public class Jogador {
                     }
 
                     if (MensagemJogada.RESULTADO_DERROTA.equalsIgnoreCase(msgRecebida.getResultado())) {
-                        System.out.println("\n[Jogador] O oponente aceitou a derrota. Fim de jogo!");
+                        System.out.println("\n[Jogador] O oponente aceitou a derrota. Fim de jogo");
                         break;
                     }
 
                     if (msgRecebida.getNumero() == numeroSequencia - 1 && msgRecebida.getJogada() == ultimaCasaJogada) {
                         System.out.println("\n Sua última jogada foi rejeitada pelo oponente!");
-                        System.out.println(" Você deve corrigir a sua jogada.");
+                        System.out.println("Você deve corrigir a sua jogada.");
                         if (ultimaCasaJogada >= 0) {
                             tabuleiro.desfazer(ultimaCasaJogada);
                             ultimaCasaJogada = -1;
@@ -191,20 +190,9 @@ public class Jogador {
                             || gradeRecebida.length != Tabuleiro.TOTAL_CASAS;
 
                     if (!jogadaInvalida) {
-                        int[] gradeAtual = tabuleiro.getGrade();
-                        for (int i = 0; i < Tabuleiro.TOTAL_CASAS; i++) {
-                            if (i == casaRecebida) {
-                                if (gradeRecebida[i] != oponenteId) {
-                                    jogadaInvalida = true;
-                                    break;
-                                }
-                            } else {
-                                if (gradeRecebida[i] != gradeAtual[i]) {
-                                    jogadaInvalida = true;
-                                    break;
-                                }
-                            }
-                        }
+                        int[] esperada = tabuleiro.getGrade();
+                        esperada[casaRecebida] = oponenteId;
+                        jogadaInvalida = !Arrays.equals(gradeRecebida, esperada);
                     }
 
                     if (jogadaInvalida) {
@@ -228,9 +216,6 @@ public class Jogador {
                         );
                         escritorSocket.println(derrota.paraJson());
 
-                        Display.transmitirJogada(new MensagemJogada(
-                                msgRecebida.getNumero(), casaRecebida, tabuleiro.getGrade(), MensagemJogada.RESULTADO_VITORIA
-                        ), multicastIp, multicastPorta);
                         break;
                     } else if (MensagemJogada.RESULTADO_EMPATE.equalsIgnoreCase(msgRecebida.getResultado()) ||
                             tabuleiro.estaCheio()) {
@@ -254,6 +239,7 @@ public class Jogador {
             if (serverSocket != null) {
                 try { serverSocket.close(); } catch (Exception ignored) {}
             }
+            Display.fecharTransmissor();
             System.out.println("[Jogador] Sessão encerrada e recursos liberados.");
         }
     }

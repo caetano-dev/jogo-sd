@@ -13,14 +13,32 @@ public class Display {
     public static final String IP_MULTICAST_PADRAO = "225.1.1.1";
     public static final int PORTA_MULTICAST_PADRAO = 8801;
 
-    public static void transmitirJogada(MensagemJogada msg, String ipMulticast, int portaMulticast) {
-        if (msg == null)
-            return;
-        try (MulticastSocket socket = new MulticastSocket()) {
+    private static MulticastSocket socketEnvio;
+
+    private static synchronized MulticastSocket obterSocketEnvio() throws Exception {
+        if (socketEnvio == null || socketEnvio.isClosed()) {
+            MulticastSocket socket = new MulticastSocket();
             NetworkInterface ni = obterInterfaceDeRede();
             if (ni != null)
                 socket.setNetworkInterface(ni);
             socket.setTimeToLive(2);
+            socketEnvio = socket;
+        }
+        return socketEnvio;
+    }
+
+    public static synchronized void fecharTransmissor() {
+        if (socketEnvio != null) {
+            socketEnvio.close();
+            socketEnvio = null;
+        }
+    }
+
+    public static synchronized void transmitirJogada(MensagemJogada msg, String ipMulticast, int portaMulticast) {
+        if (msg == null)
+            return;
+        try {
+            MulticastSocket socket = obterSocketEnvio();
             byte[] bytes = msg.paraJson().getBytes(StandardCharsets.UTF_8);
             DatagramPacket pacote = new DatagramPacket(bytes, bytes.length, InetAddress.getByName(ipMulticast),
                     portaMulticast);

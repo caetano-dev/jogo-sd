@@ -43,7 +43,12 @@ public class ServicoMatch extends UnicastRemoteObject implements MatchServiceInt
         String protocolo = req.protocolo().trim().toLowerCase();
         String minhaChave = req.ip() + ":" + req.porta();
 
-        if (fila.containsKey(protocolo)) {
+        RequisicaoMatch esperando = fila.get(protocolo);
+        if (esperando != null && minhaChave.equals(esperando.ip() + ":" + esperando.porta())) {
+            return RespostaMatch.erro("Já existe um jogador aguardando com o mesmo IP e porta").paraJson();
+        }
+
+        if (esperando != null) {
             RequisicaoMatch oponente = fila.remove(protocolo);
             String chaveOponente = oponente.ip() + ":" + oponente.porta();
 

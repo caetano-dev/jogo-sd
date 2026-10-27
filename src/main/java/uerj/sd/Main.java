@@ -21,7 +21,7 @@ public class Main {
         switch (comando) {
             case "server", "servidor" -> {
                 int porta = getInt(args, defaultPorta, "--port", "-p");
-                ServidorMatch.iniciar(porta);
+                ServidorMatch.iniciar(porta, getStr(args, "127.0.0.1", "--host", "--ip"));
             }
             case "player", "jogador" -> {
                 String serverIp = getStr(args, "127.0.0.1", "--server-ip");
@@ -59,7 +59,7 @@ public class Main {
     private static void exibirAjuda() {
         System.out.println("""
             Uso:
-              java -jar app.jar server  [--port <porta>] [--id <NN>]
+              java -jar app.jar server  [--host <ip>] [--port <porta>] [--id <NN>]
               java -jar app.jar player  [--server-ip <ip>] [--server-port <porta>] [--port <porta>] [--id <NN>]
               java -jar app.jar display [--multicast-ip <ip>] [--multicast-port <porta>] [--id <NN>]
             """);

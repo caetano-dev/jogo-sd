@@ -38,13 +38,6 @@ public class Tabuleiro {
         return linha * COLUNAS + coluna;
     }
 
-    public int getValor(int linha, int coluna) {
-        if (linha < 0 || linha >= LINHAS || coluna < 0 || coluna >= COLUNAS) {
-            throw new IndexOutOfBoundsException("Coordenada fora do tabuleiro: [" + linha + ", " + coluna + "]");
-        }
-        return grade[paraCasa(linha, coluna)];
-    }
-    
     public boolean casaValida(int casa) {
         return casa >= 0 && casa < TOTAL_CASAS && grade[casa] == VAZIO;
     }
@@ -79,10 +72,6 @@ public class Tabuleiro {
             }
         }
         return true;
-    }
-
-    public Tabuleiro clonar() {
-        return new Tabuleiro(this.grade);
     }
 
     public String renderizarAscii() {
